@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <stdarg.h>
@@ -14,6 +15,7 @@
 
 #define GOOD_INI_PATH "ressources/good_ini"
 #define BAD_INI_PATH "ressources/bad_ini"
+#define TMP_FILE "ressources/good_ini/temp.ini"
 
 
 /* Tool function to create and populate a generic non-empty dictionary */
@@ -628,6 +630,90 @@ void Test_iniparser_load(CuTest *tc)
         }
     }
     closedir(dir);
+}
+
+/* TODO: Test case from this? */
+static bool compare_string_array(char **s1, char **s2, int len)
+{
+    int i;
+
+    for(i = 0; i < len; i++)
+    {
+        /* Check for NULL pointers (empty strings)  */
+        /* Two empty strings are OK, continue to next iteration */
+        if ((s1[i] == NULL) && (s2[i] == NULL))
+            continue;
+
+        /* If just either of s1 or s2 is NULL, then they don't match */
+        if ((s1[i] == NULL) || (s2[i] == NULL))
+            return false;
+
+        /* After NULL pointers are cleared, we can compare strings */
+        if (strncmp(s1[i], s2[i], len) != 0)
+            return false;
+    }
+
+    return true;
+}
+
+/* TODO: Test case from this? */
+static bool compare_dictionaries(dictionary* d1, dictionary* d2)
+{
+    int i = 0;
+
+    /* Check if amount of entries or size match */
+    if ( (d1->n != d2->n) || (d1->size != d2->size) )
+        return false;
+
+    /* Check if hashes match */
+    for(i = 0; i < d1->n; i++)
+    {
+        if (d1->hash[i] != d2->hash[i])
+            return false;
+    }
+
+    /* Check if keys and values match, returns true if match */
+    return ( (compare_string_array(d1->key, d2->key, d1->n)) &&
+             (compare_string_array(d1->val, d2->val, d1->n)) );
+}
+
+/* Test that reading data from INI file, writing it back and reading it again
+ * should give same result. Check that keys nor values are not modified during
+ * read-write cycle unless they are not modified on purpose */
+void Test_iniparser_load_save_load(CuTest *tc)
+{
+    dictionary *first_dic;
+    dictionary *second_dic;
+    FILE *tmp_file;
+    int ret;
+
+    /* Load test INI to dictionary */
+    first_dic = iniparser_load("ressources/good_ini/special_char.ini");
+    CuAssertPtrNotNull(tc, first_dic);
+
+    /* Open first output file */
+    tmp_file = fopen(TMP_FILE, "w+");
+    CuAssertPtrNotNull(tc, tmp_file);
+
+    /* Dump dictionary to temp output file */
+    iniparser_dump_ini(first_dic, tmp_file);
+
+    /* Close temp file */
+    ret = fclose(tmp_file);
+    CuAssertIntEquals(tc, 0, ret);
+
+    /* Load created temp file back to dictionary */
+    second_dic = iniparser_load(TMP_FILE);
+    CuAssertPtrNotNull(tc, second_dic);
+
+    /* Now the assumption is that first and second dictionary should match
+     * as we haven't modified them. */
+    ret = compare_dictionaries(first_dic, second_dic);
+    CuAssertTrue(tc, ret);
+
+    /* Remove temp file */
+    ret = remove(TMP_FILE);
+    CuAssertIntEquals(tc, 0, ret);
 }
 
 void Test_dictionary_wrapper(CuTest *tc)
