@@ -269,7 +269,7 @@ void iniparser_dump_ini(const dictionary * d, FILE * f)
         for (i=0 ; i<d->size ; i++) {
             if (d->key[i]==NULL)
                 continue ;
-            fprintf(f, "%s = %s\n", d->key[i], d->val[i]);
+            fprintf(f, "%s = \"%s\"\n", d->key[i], d->val[i]);
         }
         return ;
     }
@@ -309,10 +309,12 @@ void iniparser_dumpsection_ini(const dictionary * d, const char * s, FILE * f)
         if (d->key[j]==NULL)
             continue ;
         if (!strncmp(d->key[j], keym, seclen+1)) {
-            fprintf(f,
-                    "%-30s = %s\n",
-                    d->key[j]+seclen+1,
-                    d->val[j] ? d->val[j] : "");
+            if (d->val[j]) {
+                fprintf(f, "%-30s = \"%s\"\n", d->key[j]+seclen+1, d->val[j]);
+            }
+            else {
+                fprintf(f, "%-30s = \n", d->key[j]+seclen+1);
+            }
         }
     }
     fprintf(f, "\n");
